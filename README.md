@@ -19,7 +19,7 @@ Support:
 ## Local Installation
 
 ```bash
-git clone http://gitlab.alibaba-inc.com/cvl/DAX.git
+git clone https://github.com/RiseAI-Sys/DAX.git
 cd DAX
 pip install -e .
 ```
