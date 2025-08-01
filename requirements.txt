@@ -1,0 +1,12 @@
+torch
+torchvision
+accelerate
+deepspeed
+loguru
+diffusers==0.33.1
+imageio
+imageio-ffmpeg
+einops
+ftfy
+transformers
+termcolor
