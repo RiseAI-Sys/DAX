@@ -63,9 +63,7 @@ torchrun --nproc_per_node=8 examples/wan_t2v_example.py \
 
 output video:
 
-<video width="640" height="360" controls>
-    <source src="https://raw.githubusercontent.com/RiseAI-Sys/DAX/main/assets/dax_wan_opt_video.mp4" type="video/mp4">
-</video>
+![](assets/dax_wan_opt_video.gif)
 
 # Acknowledgement
 
