@@ -275,8 +275,6 @@ class DAXWanAttnProcessor2_0:
                             async_op=True,
                             handle=handle_wrapper[current_buffer],
                         )
-                        .flatten(2, 3)
-                        .type_as(query)
                     )
                     # switch buffer
                     current_buffer ^= 1
@@ -288,7 +286,7 @@ class DAXWanAttnProcessor2_0:
                 ]["post_all2all_func"](all2all_output_temp)
                 hidden_states_temp_buffer[current_buffer] = hidden_states_temp_buffer[
                     current_buffer
-                ].flatten(2)
+                ].flatten(2, 3).type_as(query)
                 # compute previous
                 hidden_states_temp_buffer[current_buffer] = attn.to_out[0](
                     hidden_states_temp_buffer[current_buffer]
