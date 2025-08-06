@@ -37,7 +37,7 @@ python setup.py install
 
 # [optional] SageAttention
 git clone https://github.com/thu-ml/SageAttention.git
-cd sageattention 
+cd SageAttention 
 python setup.py install
 ```
 
