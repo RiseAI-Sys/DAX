@@ -17,7 +17,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="dax",
-    version="0.1.0",
+    version="0.2.0",
     author="zhexin.lzx, yixuan.zyx, xingyuanjie.xyj, leyi.wjc",
     description="Diffusion Accelerated eXecution",
     long_description=long_description,  # 添加长描述

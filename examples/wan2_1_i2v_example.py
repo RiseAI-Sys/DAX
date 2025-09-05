@@ -8,14 +8,15 @@ import argparse
 import time
 
 import torch
-from diffusers import AutoencoderKLWan, WanPipeline
-from diffusers.schedulers.scheduling_unipc_multistep import (
-    UniPCMultistepScheduler,
-)
-from diffusers.utils import export_to_video
-from termcolor import colored
+torch.set_float32_matmul_precision('high')
 
-from dax.adapters.wan import optimize_pipe
+import numpy as np
+from PIL import Image
+from diffusers import AutoencoderKLWan, WanImageToVideoPipeline
+from diffusers.utils import export_to_video, load_image
+from transformers import CLIPVisionModel
+
+from dax.adapters.wan2_1 import optimize_pipe
 from dax.cache.teacache import reset_cache
 from dax.parallel import dist as para_dist
 from dax.parallel.dist.coordinator import destroy_process_group
@@ -32,8 +33,14 @@ def main():
     parser.add_argument(
         "--model_id",
         type=str,
-        default="Wan-AI/Wan2.1-T2V-14B-Diffusers",
+        default="Wan-AI/Wan2.1-I2V-14B-720P-Diffusers",
         help="Model ID to use for generation",
+    )
+    parser.add_argument(
+        "--image_path",
+        type=str,
+        default="assets/i2v_input.png",
+        help="The input image to condition the generation on",
     )
     parser.add_argument(
         "--prompt",
@@ -46,12 +53,6 @@ def main():
         type=str,
         default=None,
         help="Negative text prompt to avoid certain features",
-    )
-    parser.add_argument(
-        "--height", type=int, default=720, help="Height of the generated video"
-    )
-    parser.add_argument(
-        "--width", type=int, default=1280, help="Width of the generated video"
     )
     parser.add_argument(
         "--num_frames",
@@ -104,26 +105,26 @@ def main():
 
     seed_everything(args.seed)
 
-    # Available models: Wan-AI/Wan2.1-T2V-14B-Diffusers, Wan-AI/Wan2.1-T2V-1.3B-Diffusers
+    # Available models: Wan-AI/Wan2.1-I2V-14B-480P-Diffusers, Wan-AI/Wan2.1-I2V-14B-720P-Diffusers
     model_id = args.model_id
+    image_encoder = CLIPVisionModel.from_pretrained(
+        model_id, subfolder="image_encoder", torch_dtype=torch.float32
+    )
     vae = AutoencoderKLWan.from_pretrained(
         model_id, subfolder="vae", torch_dtype=torch.float32
     )
-    flow_shift = 5.0  # 5.0 for 720P, 3.0 for 480P
-    scheduler = UniPCMultistepScheduler(
-        prediction_type="flow_prediction",
-        use_flow_sigmas=True,
-        num_train_timesteps=1000,
-        flow_shift=flow_shift,
+
+    pipe = WanImageToVideoPipeline.from_pretrained(
+        model_id, vae=vae, image_encoder=image_encoder, torch_dtype=torch.bfloat16
     )
-    pipe = WanPipeline.from_pretrained(model_id, vae=vae, torch_dtype=torch.bfloat16)
-    pipe.scheduler = scheduler
 
     if args.enable_teacache:
         kwargs = {
             "cache_strategy": "teacache",
             "teacache_thresh": 0.1,
             "num_inference_steps": args.num_inference_steps,
+            "task": "i2v",
+            "resolution": "720P" if "720P" in model_id else "480P",
         }
     else:
         kwargs = {}
@@ -143,14 +144,19 @@ def main():
         device = torch.device("cuda")
     pipe.to(device)
 
+    image = load_image(Image.open(args.image_path))
+    max_area = 720 * 1280 if "720P" in model_id else 480 * 832
+    aspect_ratio = image.height / image.width
+    mod_value = pipe.vae_scale_factor_spatial * pipe.transformer.config.patch_size[1]
+    height = round(np.sqrt(max_area * aspect_ratio)) // mod_value * mod_value
+    width = round(np.sqrt(max_area / aspect_ratio)) // mod_value * mod_value
+    image = image.resize((width, height))
+
     if args.prompt is None:
-        log_rank0(colored("Using default prompt", "red"))
+        log_rank0("Using default prompt")
         args.prompt = """
-        The camera rushes from far to near in a low-angle shot, 
-        revealing a white ferret on a log. It plays, leaps into the water, and emerges, as the camera zooms in 
-        for a close-up. Water splashes berry bushes nearby, while moss, snow, and leaves blanket the ground. 
-        Birch trees and a light blue sky frame the scene, with ferns in the foreground. Side lighting casts dynamic 
-        shadows and warm highlights. Medium composition, front view, low angle, with depth of field.
+        A fluffy white cat gracefully walking through a lush green meadow, its tail held high,
+        gentle breeze moving the grass, sunlight streaming through the trees in the background, cinematic style.
         """
 
     if args.negative_prompt is None:
@@ -170,10 +176,11 @@ def main():
 
     # warm up
     output = pipe(
+        image=image,
         prompt=args.prompt,
         negative_prompt=args.negative_prompt,
-        height=args.height,
-        width=args.width,
+        height=height,
+        width=width,
         num_frames=args.num_frames,
         guidance_scale=5.0,
         num_inference_steps=3,
@@ -184,10 +191,11 @@ def main():
 
     reset_cache(pipe)
     output = pipe(
+        image=image,
         prompt=args.prompt,
         negative_prompt=args.negative_prompt,
-        height=args.height,
-        width=args.width,
+        height=height,
+        width=width,
         num_frames=args.num_frames,
         guidance_scale=5.0,
         num_inference_steps=args.num_inference_steps,

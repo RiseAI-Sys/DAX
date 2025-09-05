@@ -9,4 +9,4 @@ imageio-ffmpeg
 einops
 ftfy
 transformers
-termcolor
+numpy

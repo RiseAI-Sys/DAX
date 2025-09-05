@@ -13,6 +13,9 @@ Support:
 - Teacache, accelerating DiT model inference by skipping trivial denoising steps. 
 - torch.compile, which is crucial for achieving expected performance for above acceleration methods by fusing quantization and communication ops.
 
+# News
+
+- [2025-09-05] Support for WAN Image-to-Video (I2V) Models.
 
 # Installation
 
@@ -49,7 +52,7 @@ for wan2.1, SageAttention is recommended.
 
 ```bash
 export ATTENTION_BACKEND=SAGE_ATTN
-torchrun --nproc_per_node=8 examples/wan_t2v_example.py \
+torchrun --nproc_per_node=8 examples/wan2_1_t2v_example.py \
     --model_id Wan-AI/Wan2.1-T2V-14B-Diffusers \
     --height 720 \
     --width 1280 \
