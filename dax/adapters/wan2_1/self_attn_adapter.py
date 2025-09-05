@@ -50,7 +50,7 @@ elif ATTENTION_BACKEND != "TORCH_SDPA":
 print(f"[PreInfo] Use attention backend={ATTENTION_BACKEND}")
 
 
-class DAXWanAttnProcessor2_0:
+class DAXWanSelfAttnProcessor2_0:
     def __init__(self, sp_size=1, overlap_comm=False):
         if not hasattr(F, "scaled_dot_product_attention"):
             raise ImportError(
@@ -284,9 +284,11 @@ class DAXWanAttnProcessor2_0:
                 hidden_states_temp_buffer[current_buffer] = handle_wrapper[
                     current_buffer
                 ]["post_all2all_func"](all2all_output_temp)
-                hidden_states_temp_buffer[current_buffer] = hidden_states_temp_buffer[
-                    current_buffer
-                ].flatten(2, 3).type_as(query)
+                hidden_states_temp_buffer[current_buffer] = (
+                    hidden_states_temp_buffer[current_buffer]
+                    .flatten(2, 3)
+                    .type_as(query)
+                )
                 # compute previous
                 hidden_states_temp_buffer[current_buffer] = attn.to_out[0](
                     hidden_states_temp_buffer[current_buffer]
@@ -302,11 +304,3 @@ class DAXWanAttnProcessor2_0:
         # dropout
         hidden_states = attn.to_out[1](hidden_states)
         return hidden_states
-
-
-def replace_wan_attention(pipe, sp_size=1, overlap_comm=False):
-    for _, m in pipe.transformer.named_modules():
-        if isinstance(m, Attention):
-            m.set_processor(
-                DAXWanAttnProcessor2_0(sp_size=sp_size, overlap_comm=overlap_comm)
-            )

@@ -48,12 +48,12 @@ def should_skip_forward_for_cached_states(self, **kwargs) -> bool:
             self.should_calc_even = True
             self.accumulated_rel_l1_distance_even = 0
         else:
-            assert self.previous_e0_even is not None, (
-                "previous_e0_even is not initialized"
-            )
-            assert self.accumulated_rel_l1_distance_even is not None, (
-                "accumulated_rel_l1_distance_even is not initialized"
-            )
+            assert (
+                self.previous_e0_even is not None
+            ), "previous_e0_even is not initialized"
+            assert (
+                self.accumulated_rel_l1_distance_even is not None
+            ), "accumulated_rel_l1_distance_even is not initialized"
             rescale_func = np.poly1d(coefficients)
             self.accumulated_rel_l1_distance_even += rescale_func(
                 (
@@ -76,12 +76,12 @@ def should_skip_forward_for_cached_states(self, **kwargs) -> bool:
             self.should_calc_odd = True
             self.accumulated_rel_l1_distance_odd = 0
         else:
-            assert self.previous_e0_odd is not None, (
-                "previous_e0_odd is not initialized"
-            )
-            assert self.accumulated_rel_l1_distance_odd is not None, (
-                "accumulated_rel_l1_distance_odd is not initialized"
-            )
+            assert (
+                self.previous_e0_odd is not None
+            ), "previous_e0_odd is not initialized"
+            assert (
+                self.accumulated_rel_l1_distance_odd is not None
+            ), "accumulated_rel_l1_distance_odd is not initialized"
             rescale_func = np.poly1d(coefficients)
             self.accumulated_rel_l1_distance_odd += rescale_func(
                 (
@@ -107,6 +107,92 @@ def should_skip_forward_for_cached_states(self, **kwargs) -> bool:
             should_skip_forward = True
 
     return should_skip_forward
+
+
+def init_cache_params(
+    transformer,
+    task="t2v",
+    thresh=0.1,
+    use_ref_steps=True,
+    resolution=None,
+    num_inference_steps=50,
+):
+    assert task in ["t2v", "i2v"]
+    if resolution is not None:
+        assert resolution in ["720P", "480P"]
+
+    transformer.__class__.enable_teacache = True
+    transformer.__class__.cnt = 0
+    transformer.__class__.teacache_thresh = thresh
+    transformer.__class__.accumulated_rel_l1_distance_even = 0
+    transformer.__class__.accumulated_rel_l1_distance_odd = 0
+    transformer.__class__.previous_e0_even = None
+    transformer.__class__.previous_e0_odd = None
+    transformer.__class__.previous_residual_even = None
+    transformer.__class__.previous_residual_odd = None
+    transformer.__class__.use_ref_steps = use_ref_steps
+
+    if task == "t2v":
+        if transformer.__class__.use_ref_steps:
+            transformer.__class__.coefficients = [
+                -3.03318725e05,
+                4.90537029e04,
+                -2.65530556e03,
+                5.87365115e01,
+                -3.15583525e-01,
+            ]
+            transformer.__class__.ret_steps = 5 * 2
+            transformer.__class__.cutoff_steps = num_inference_steps * 2
+        else:
+            transformer.__class__.coefficients = [
+                -5784.54975374,
+                5449.50911966,
+                -1811.16591783,
+                256.27178429,
+                -13.02252404,
+            ]
+            transformer.__class__.ret_steps = 1 * 2
+            transformer.__class__.cutoff_steps = num_inference_steps * 2 - 2
+
+    elif task == "i2v":
+        if transformer.__class__.use_ref_steps:
+            if resolution == "480P":
+                transformer.__class__.coefficients = [
+                    2.57151496e05,
+                    -3.54229917e04,
+                    1.40286849e03,
+                    -1.35890334e01,
+                    1.32517977e-01,
+                ]
+            if resolution == "720P":
+                transformer.__class__.coefficients = [
+                    8.10705460e03,
+                    2.13393892e03,
+                    -3.72934672e02,
+                    1.66203073e01,
+                    -4.17769401e-02,
+                ]
+            transformer.__class__.ret_steps = 5 * 2
+            transformer.__class__.cutoff_steps = num_inference_steps * 2
+        else:
+            if resolution == "480P":
+                transformer.__class__.coefficients = [
+                    -3.02331670e02,
+                    2.23948934e02,
+                    -5.25463970e01,
+                    5.87348440e00,
+                    -2.01973289e-01,
+                ]
+            if resolution == "720P":
+                transformer.__class__.coefficients = [
+                    -114.36346466,
+                    65.26524496,
+                    -18.82220707,
+                    4.91518089,
+                    -0.23412683,
+                ]
+            transformer.__class__.ret_steps = 1 * 2
+            transformer.__class__.cutoff_steps = num_inference_steps * 2 - 2
 
 
 def reset_cache(pipe):

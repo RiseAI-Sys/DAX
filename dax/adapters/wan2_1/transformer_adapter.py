@@ -27,6 +27,7 @@ from diffusers.utils import (
 )
 
 from ...cache.teacache import (
+    init_cache_params,
     maybe_cache_states,
     retrieve_cached_states,
     should_skip_forward_for_cached_states,
@@ -181,43 +182,13 @@ def replace_transformer(
     transformer.forward = new_forward.__get__(transformer)
 
     if cache_strategy == "teacache":
-        transformer.__class__.enable_teacache = True
-
-        transformer.__class__.cnt = 0
-        transformer.__class__.teacache_thresh = cache_params.get("teacache_thresh", 0.1)
-        transformer.__class__.accumulated_rel_l1_distance_even = 0
-        transformer.__class__.accumulated_rel_l1_distance_odd = 0
-        transformer.__class__.previous_e0_even = None
-        transformer.__class__.previous_e0_odd = None
-        transformer.__class__.previous_residual_even = None
-        transformer.__class__.previous_residual_odd = None
-        transformer.__class__.use_ref_steps = True
-
-        if transformer.__class__.use_ref_steps:
-            transformer.__class__.coefficients = [
-                -3.03318725e05,
-                4.90537029e04,
-                -2.65530556e03,
-                5.87365115e01,
-                -3.15583525e-01,
-            ]
-            transformer.__class__.ret_steps = 5 * 2
-            transformer.__class__.cutoff_steps = (
-                cache_params.get("num_inference_steps", 50) * 2
-            )
-        else:
-            transformer.__class__.coefficients = [
-                -5784.54975374,
-                5449.50911966,
-                -1811.16591783,
-                256.27178429,
-                -13.02252404,
-            ]
-            transformer.__class__.ret_steps = 1 * 2
-            transformer.__class__.cutoff_steps = (
-                cache_params.get("num_inference_steps", 50) * 2 - 2
-            )
-
+        init_cache_params(
+            transformer,
+            task=cache_params.get("task"),
+            thresh=cache_params.get("teacache_thresh"),
+            resolution=cache_params.get("resolution", None),
+            num_inference_steps=cache_params.get("num_inference_steps"),
+        )
     else:
         transformer.__class__.enable_teacache = False
 
